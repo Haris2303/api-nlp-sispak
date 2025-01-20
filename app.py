@@ -18,23 +18,9 @@ app = Flask(__name__)
 loader = PyPDFLoader("pdf/dataset.pdf")
 data = loader.load()
 
-# Menghitung jumlah halaman PDF
-num_pages = len(data)
-print(f"Jumlah halaman dalam PDF: {num_pages}")
-
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
 
 docs = text_splitter.split_documents(data)
-
-# Menampilkan jumlah total bagian dokumen
-num_parts = len(docs)
-print(f"Jumlah total bagian dokumen: {num_parts}")
-
-# Menampilkan hasil split data
-for i, doc in enumerate(docs):
-    print(f"=== Split {i + 1} ===")
-    print(doc.page_content)
-    print("\n")
 
 vectorstore = Chroma.from_documents(documents=docs, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
 
@@ -63,10 +49,6 @@ prompt = ChatPromptTemplate(
         HumanMessagePromptTemplate.from_template("{quetion}")
     ]
 )
-
-print("System Prompt: ", system_prompt)
-print("===================================")
-print("Prompt: ", prompt)
 
 # Init conversation memory
 memory = ConversationBufferMemory(
