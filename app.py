@@ -1,5 +1,3 @@
-import streamlit as st
-import time
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -9,10 +7,6 @@ from langchain.chains import create_retrieval_chain, LLMChain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain.memory import ConversationBufferMemory
-import chromadb
-import pyglet
-from gtts import gTTS
-import os 
 from flask import Flask, request, jsonify, Response
 
 from dotenv import load_dotenv
@@ -21,19 +15,32 @@ load_dotenv()
 # init flask
 app = Flask(__name__)
 
-file_path = ""
-
-loader = PyPDFLoader("document.pdf")
+loader = PyPDFLoader("pdf/dataset.pdf")
 data = loader.load()
 
+# Menghitung jumlah halaman PDF
+num_pages = len(data)
+print(f"Jumlah halaman dalam PDF: {num_pages}")
+
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
+
 docs = text_splitter.split_documents(data)
+
+# Menampilkan jumlah total bagian dokumen
+num_parts = len(docs)
+print(f"Jumlah total bagian dokumen: {num_parts}")
+
+# Menampilkan hasil split data
+for i, doc in enumerate(docs):
+    print(f"=== Split {i + 1} ===")
+    print(doc.page_content)
+    print("\n")
 
 vectorstore = Chroma.from_documents(documents=docs, embedding=GoogleGenerativeAIEmbeddings(model="models/embedding-001"))
 
 retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 10})
 
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0, max_tokens=None, timeout=None)
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", temperature=0, max_tokens=None, timeout=None)
 
 system_prompt = (
     "Anda adalah asisten untuk tugas-tugas menjawab pertanyaan. "
@@ -43,6 +50,7 @@ system_prompt = (
     "pertanyaannya. Jika Anda tidak tahu jawabannya, katakan bahwa Anda "
     "tidak tahu. Gunakan maksimal tiga kalimat dan jaga agar "
     "jawablah dengan ringkas."
+    "jangan menggunakan tanda (*)"
     "\n\n"
     "{context}"
     "Riwayat chat sebelumnya dari user: {chat_history}"
@@ -55,6 +63,10 @@ prompt = ChatPromptTemplate(
         HumanMessagePromptTemplate.from_template("{quetion}")
     ]
 )
+
+print("System Prompt: ", system_prompt)
+print("===================================")
+print("Prompt: ", prompt)
 
 # Init conversation memory
 memory = ConversationBufferMemory(
@@ -83,6 +95,8 @@ def run_nlp(query):
 
             chat_history = memory.load_memory_variables({})['chat_history']
 
+            print("History: ", chat_history)
+
             return response
         except Exception as err:
             print(f"Error: {str(err)}")
@@ -99,13 +113,6 @@ def get_data():
         mimetype="application/json"
     )
     return res
-
-# try remove file audio
-try: 
-    os.remove(file_path)
-    print(f"File '{file_path}' deleted successfully.")
-
-except FileNotFoundError: print(f"File '{file_path}' not found.")
 
 if __name__ == '__main__':
     app.run(debug=True)
